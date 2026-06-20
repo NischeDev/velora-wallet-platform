@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 
@@ -8,6 +8,12 @@ import type { Environment } from '../../config/environment.js';
 interface VerifiedRefreshToken {
   userId: string;
   tokenId: string;
+  authVersion: number;
+}
+
+interface VerifiedAccessToken {
+  userId: string;
+  authVersion: number;
 }
 
 export class TokenService {
@@ -16,8 +22,8 @@ export class TokenService {
 
   public constructor(private readonly environment: Environment) {}
 
-  public createAccessToken(userId: string): string {
-    return jwt.sign({ type: 'access' }, this.environment.JWT_ACCESS_SECRET, {
+  public createAccessToken(userId: string, authVersion: number): string {
+    return jwt.sign({ type: 'access', authVersion }, this.environment.JWT_ACCESS_SECRET, {
       subject: userId,
       jwtid: randomUUID(),
       issuer: this.issuer,
@@ -26,14 +32,17 @@ export class TokenService {
     });
   }
 
-  public createRefreshToken(userId: string): {
+  public createRefreshToken(
+    userId: string,
+    authVersion: number,
+  ): {
     token: string;
     tokenId: string;
     tokenHash: string;
     expiresAt: Date;
   } {
     const tokenId = randomUUID();
-    const token = jwt.sign({ type: 'refresh' }, this.environment.JWT_REFRESH_SECRET, {
+    const token = jwt.sign({ type: 'refresh', authVersion }, this.environment.JWT_REFRESH_SECRET, {
       subject: userId,
       jwtid: tokenId,
       issuer: this.issuer,
@@ -49,14 +58,33 @@ export class TokenService {
     };
   }
 
-  public verifyAccessToken(token: string): string {
+  public createPasswordResetToken(): {
+    token: string;
+    tokenId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  } {
+    const token = randomBytes(32).toString('base64url');
+    return {
+      token,
+      tokenId: randomUUID(),
+      tokenHash: this.hashToken(token),
+      expiresAt: new Date(Date.now() + this.environment.PASSWORD_RESET_TTL_SECONDS * 1000),
+    };
+  }
+
+  public verifyAccessToken(token: string): VerifiedAccessToken {
     const payload = this.verify(token, this.environment.JWT_ACCESS_SECRET, 'access');
-    return payload.sub!;
+    return { userId: payload.sub!, authVersion: payload.authVersion as number };
   }
 
   public verifyRefreshToken(token: string): VerifiedRefreshToken {
     const payload = this.verify(token, this.environment.JWT_REFRESH_SECRET, 'refresh');
-    return { userId: payload.sub!, tokenId: payload.jti! };
+    return {
+      userId: payload.sub!,
+      tokenId: payload.jti!,
+      authVersion: payload.authVersion as number,
+    };
   }
 
   public hashToken(token: string): string {
@@ -74,7 +102,10 @@ export class TokenService {
         typeof payload === 'string' ||
         payload.type !== expectedType ||
         typeof payload.sub !== 'string' ||
-        typeof payload.jti !== 'string'
+        typeof payload.jti !== 'string' ||
+        typeof payload.authVersion !== 'number' ||
+        !Number.isInteger(payload.authVersion) ||
+        payload.authVersion < 1
       ) {
         throw new AuthenticationError('The token is invalid');
       }

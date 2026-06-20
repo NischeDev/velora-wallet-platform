@@ -41,4 +41,13 @@ export class RefreshTokenRepository {
       [id, replacedBy ?? null],
     );
   }
+
+  public async revokeAllForUser(client: PoolClient, userId: string): Promise<void> {
+    await client.query(
+      `UPDATE refresh_tokens
+       SET revoked_at = COALESCE(revoked_at, NOW())
+       WHERE user_id = $1 AND revoked_at IS NULL`,
+      [userId],
+    );
+  }
 }

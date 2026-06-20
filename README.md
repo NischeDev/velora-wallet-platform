@@ -60,6 +60,7 @@ P2P transfer 400:
 - bcrypt password hashing with configurable work factor.
 - Short-lived JWT access tokens.
 - Rotating JWT refresh tokens stored as SHA-256 hashes.
+- Single-use, expiring password-reset links with hashed tokens and full session revocation.
 - Ledger-derived wallet balances.
 - Deposits and withdrawals behind a replaceable payment-provider interface.
 - P2P transfers with deterministic row-lock ordering.
@@ -127,6 +128,27 @@ The repository includes a Render Blueprint that deploys the React UI and Express
 The server runs database migrations automatically during startup. Render generates the JWT secrets and injects the database and Key Value connection strings, so secrets are not committed to Git.
 
 This free deployment is suitable only for a portfolio demo. Render free web services sleep after 15 minutes of inactivity, free PostgreSQL expires after 30 days, and free Key Value data can be lost on restart. The deployment uses simulated money and is not an RBI-authorised wallet or live payment system.
+
+### Enable password-reset email
+
+Password-reset tokens are opaque, stored only as SHA-256 hashes, expire after 15 minutes, and can be used once. Completing a reset increments the user's authentication version and revokes every access and refresh token issued before the password change.
+
+Email delivery is disabled by default so the application never leaks reset links into production logs. To enable it:
+
+1. Create a Resend account and verify a domain or sending subdomain.
+2. Create a sending API key.
+3. In Render, open `velora-wallet-platform` → **Environment** and add:
+
+```dotenv
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_replace_with_your_secret
+EMAIL_FROM=Velora <security@your-verified-domain.example>
+PUBLIC_APP_URL=https://velora-wallet-platform.onrender.com
+```
+
+4. Save the environment changes and let Render redeploy the service.
+
+For local-only testing, set `EMAIL_PROVIDER=console`. The reset URL is written to the structured development log. Console delivery is rejected when `NODE_ENV=production`.
 
 ## India payment sandbox
 

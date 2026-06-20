@@ -29,6 +29,12 @@ export class AuthenticationError extends AppError {
   }
 }
 
+export class PasswordResetTokenError extends AppError {
+  public constructor() {
+    super('The password-reset link is invalid or has expired', 400, 'PASSWORD_RESET_TOKEN_INVALID');
+  }
+}
+
 export class ForbiddenError extends AppError {
   public constructor(message = 'You are not allowed to perform this action') {
     super(message, 403, 'FORBIDDEN');

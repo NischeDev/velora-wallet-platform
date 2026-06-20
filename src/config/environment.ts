@@ -25,6 +25,7 @@ const environmentSchema = z
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     SERVE_FRONTEND: booleanString.default(false),
     FRONTEND_DIST_PATH: z.string().min(1).default('frontend/dist'),
+    PUBLIC_APP_URL: z.url().default('http://localhost:5173'),
     DATABASE_URL: connectionUrl('DATABASE_URL', ['postgres:', 'postgresql:']),
     DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
     DATABASE_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
@@ -36,6 +37,11 @@ const environmentSchema = z
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     JWT_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(604_800),
     BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
+    PASSWORD_RESET_TTL_SECONDS: z.coerce.number().int().min(300).max(3600).default(900),
+    EMAIL_PROVIDER: z.enum(['disabled', 'console', 'resend']).default('disabled'),
+    EMAIL_FROM: z.string().min(3).default('Velora <onboarding@resend.dev>'),
+    RESEND_API_KEY: optionalSecret,
+    EMAIL_TIMEOUT_MS: z.coerce.number().int().positive().max(30_000).default(10_000),
     DEFAULT_CURRENCY: z.enum(['USD', 'INR']).default('INR'),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
     IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
@@ -47,6 +53,20 @@ const environmentSchema = z
     RAZORPAY_TIMEOUT_MS: z.coerce.number().int().positive().max(30_000).default(10_000),
   })
   .superRefine((value, context) => {
+    if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RESEND_API_KEY'],
+        message: 'Required when EMAIL_PROVIDER is resend',
+      });
+    }
+    if (value.NODE_ENV === 'production' && value.EMAIL_PROVIDER === 'console') {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMAIL_PROVIDER'],
+        message: 'Console email delivery is not allowed in production',
+      });
+    }
     if (value.PAYMENT_PROVIDER !== 'razorpay') return;
     if (!value.RAZORPAY_KEY_ID) {
       context.addIssue({

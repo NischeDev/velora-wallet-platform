@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { URL, URLSearchParams } from 'node:url';
 
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
@@ -17,6 +18,7 @@ describe('Digital Wallet API', () => {
   let cache;
   let api;
   let razorpayApi;
+  const passwordResetEmails = [];
 
   beforeAll(async () => {
     [postgres, redis] = await Promise.all([
@@ -39,6 +41,9 @@ describe('Digital Wallet API', () => {
       LOG_LEVEL: 'silent',
       TRUST_PROXY: false,
       SHUTDOWN_TIMEOUT_MS: 10_000,
+      SERVE_FRONTEND: false,
+      FRONTEND_DIST_PATH: 'frontend/dist',
+      PUBLIC_APP_URL: 'http://localhost:5173',
       DATABASE_URL: postgres.getConnectionUri(),
       DATABASE_POOL_MAX: 10,
       DATABASE_IDLE_TIMEOUT_MS: 30_000,
@@ -50,6 +55,10 @@ describe('Digital Wallet API', () => {
       JWT_ACCESS_TTL_SECONDS: 900,
       JWT_REFRESH_TTL_SECONDS: 604_800,
       BCRYPT_ROUNDS: 10,
+      PASSWORD_RESET_TTL_SECONDS: 900,
+      EMAIL_PROVIDER: 'disabled',
+      EMAIL_FROM: 'Velora <test@example.com>',
+      EMAIL_TIMEOUT_MS: 10_000,
       DEFAULT_CURRENCY: 'USD',
       CORS_ORIGINS: 'http://localhost:3000',
       IDEMPOTENCY_TTL_SECONDS: 86_400,
@@ -59,7 +68,12 @@ describe('Digital Wallet API', () => {
     cache = createCacheClient(environment, logger);
     await cache.connect();
     await runMigrations(database, resolve('migrations'), logger);
-    api = request(createApp({ environment, logger, database, cache }));
+    const passwordResetMailer = {
+      async send(input) {
+        passwordResetEmails.push(input);
+      },
+    };
+    api = request(createApp({ environment, logger, database, cache, passwordResetMailer }));
 
     let latestOrder;
     const fakeRazorpayClient = {
@@ -98,6 +112,7 @@ describe('Digital Wallet API', () => {
         database,
         cache,
         razorpayClient: fakeRazorpayClient,
+        passwordResetMailer,
       }),
     );
   });
@@ -340,6 +355,49 @@ describe('Digital Wallet API', () => {
       .set('Authorization', `Bearer ${admin.accessToken}`)
       .expect(200);
     expect(audit.body.data.events[0].narrative).toContain('deposited funds');
+  });
+
+  test('resets a password once and immediately revokes every existing session', async () => {
+    const originalPassword = 'correct-horse-battery-staple';
+    const newPassword = 'an-even-longer-secure-passphrase';
+    const user = await signup('password-reset@example.com', 'Password Reset');
+
+    const existingCount = passwordResetEmails.length;
+    const knownResponse = await api
+      .post('/api/v1/auth/forgot-password')
+      .send({ email: 'password-reset@example.com' })
+      .expect(202);
+    const unknownResponse = await api
+      .post('/api/v1/auth/forgot-password')
+      .send({ email: 'does-not-exist@example.com' })
+      .expect(202);
+
+    expect(unknownResponse.body.data).toEqual(knownResponse.body.data);
+    expect(passwordResetEmails).toHaveLength(existingCount + 1);
+    const email = passwordResetEmails.at(-1);
+    const hash = new URL(email.resetUrl).hash;
+    const token = new URLSearchParams(hash.slice('#reset-password?'.length)).get('token');
+    expect(token).toBeTruthy();
+
+    await api
+      .post('/api/v1/auth/reset-password')
+      .send({ token, password: newPassword })
+      .expect(200);
+
+    await api.get('/api/v1/wallet').set('Authorization', `Bearer ${user.accessToken}`).expect(401);
+    await api.post('/api/v1/auth/refresh').send({ refreshToken: user.refreshToken }).expect(401);
+    await api
+      .post('/api/v1/auth/login')
+      .send({ email: 'password-reset@example.com', password: originalPassword })
+      .expect(401);
+    await api
+      .post('/api/v1/auth/login')
+      .send({ email: 'password-reset@example.com', password: newPassword })
+      .expect(200);
+    await api
+      .post('/api/v1/auth/reset-password')
+      .send({ token, password: 'another-secure-passphrase' })
+      .expect(400);
   });
 
   async function signup(email, fullName) {

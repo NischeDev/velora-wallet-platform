@@ -32,9 +32,14 @@ export function createApiClient(options: ApiClientOptions) {
         body: JSON.stringify({ refreshToken: current.refreshToken }),
       },
       false,
-    ).finally(() => {
-      refreshPromise = null;
-    });
+    )
+      .catch((error: unknown) => {
+        options.onSession(null);
+        throw error;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
     const next = await refreshPromise;
     options.onSession(next);
     return next;
@@ -88,6 +93,26 @@ export function createApiClient(options: ApiClientOptions) {
         {
           method: 'POST',
           body: JSON.stringify(input),
+        },
+        false,
+      );
+    },
+    forgotPassword(email: string) {
+      return request<{ message: string }>(
+        '/api/v1/auth/forgot-password',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        },
+        false,
+      );
+    },
+    resetPassword(token: string, password: string) {
+      return request<{ passwordReset: true }>(
+        '/api/v1/auth/reset-password',
+        {
+          method: 'POST',
+          body: JSON.stringify({ token, password }),
         },
         false,
       );

@@ -16,25 +16,27 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
-        value: "production"
+        value: 'production'
       - key: HOST
-        value: "0.0.0.0"
+        value: '0.0.0.0'
       - key: LOG_LEVEL
-        value: "info"
+        value: 'info'
       - key: TRUST_PROXY
-        value: "true"
+        value: 'true'
       - key: SERVE_FRONTEND
-        value: "true"
+        value: 'true'
       - key: FRONTEND_DIST_PATH
-        value: "frontend/dist"
+        value: 'frontend/dist'
+      - key: PUBLIC_APP_URL
+        value: 'https://velora-wallet-platform.onrender.com'
       - key: DATABASE_URL
         fromDatabase:
           name: velora-postgres
           property: connectionString
       - key: DATABASE_SSL
-        value: "false"
+        value: 'false'
       - key: DATABASE_POOL_MAX
-        value: "5"
+        value: '5'
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -44,12 +46,14 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: PASSWORD_RESET_TTL_SECONDS
+        value: '900'
       - key: DEFAULT_CURRENCY
-        value: "INR"
+        value: 'INR'
       - key: CORS_ORIGINS
-        value: "https://velora-wallet-platform.onrender.com"
+        value: 'https://velora-wallet-platform.onrender.com'
       - key: PAYMENT_PROVIDER
-        value: "simulated"
+        value: 'simulated'
 
 databases:
   - name: velora-postgres

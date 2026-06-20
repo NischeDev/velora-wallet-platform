@@ -20,8 +20,7 @@ export function createSecurityMiddleware(environment: Environment): RequestHandl
 
       callback(null, {
         credentials: true,
-        origin:
-          !requestOrigin || requestOrigin === sameOrigin || allowedOrigins.has(requestOrigin),
+        origin: !requestOrigin || requestOrigin === sameOrigin || allowedOrigins.has(requestOrigin),
       });
     }),
   ];
@@ -38,6 +37,13 @@ export const globalRateLimit = rateLimit({
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
+
+export const passwordResetRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
 });

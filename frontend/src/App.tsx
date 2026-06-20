@@ -53,6 +53,8 @@ export default function App() {
       <AuthScreen
         signup={(input) => api.signup(input)}
         login={(input) => api.login(input)}
+        forgotPassword={(email) => api.forgotPassword(email)}
+        resetPassword={(token, password) => api.resetPassword(token, password)}
         onSuccess={setSession}
       />
     );

@@ -131,6 +131,56 @@ export const openApiDocument = {
         },
       },
     },
+    '/api/v1/auth/forgot-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Request a single-use password-reset email',
+        description:
+          'Always returns the same response so callers cannot discover whether an email is registered.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email'],
+                properties: { email: { type: 'string', format: 'email' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '202': { description: 'Request accepted' },
+          '429': { description: 'Too many reset requests' },
+        },
+      },
+    },
+    '/api/v1/auth/reset-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Set a new password using a single-use reset token',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['token', 'password'],
+                properties: {
+                  token: { type: 'string', minLength: 40, maxLength: 128 },
+                  password: { type: 'string', format: 'password', minLength: 12, maxLength: 72 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Password changed and all sessions revoked' },
+          '400': { description: 'Reset token is invalid, expired, or already used' },
+          '429': { description: 'Too many reset attempts' },
+        },
+      },
+    },
     '/api/v1/wallet': {
       get: {
         tags: ['Wallet'],

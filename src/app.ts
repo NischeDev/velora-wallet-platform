@@ -12,6 +12,7 @@ import {
   createSecurityMiddleware,
   globalRateLimit,
   moneyRateLimit,
+  passwordResetRateLimit,
 } from './common/middleware/security.middleware.js';
 import type { Environment } from './config/environment.js';
 import { openApiDocument } from './docs/openapi.js';
@@ -27,6 +28,11 @@ import { AuthHandler } from './modules/auth/auth.handler.js';
 import { createAuthMiddleware } from './modules/auth/auth.middleware.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { AuthService } from './modules/auth/auth.service.js';
+import {
+  createPasswordResetMailer,
+  type PasswordResetMailer,
+} from './modules/auth/password-reset.mailer.js';
+import { PasswordResetRepository } from './modules/auth/password-reset.repository.js';
 import { RefreshTokenRepository } from './modules/auth/refresh-token.repository.js';
 import { TokenService } from './modules/auth/token.service.js';
 import { UserRepository } from './modules/auth/user.repository.js';
@@ -62,6 +68,7 @@ export interface AppDependencies {
   cache: CacheClient;
   paymentProvider?: PaymentProvider;
   razorpayClient?: RazorpayClient | null;
+  passwordResetMailer?: PasswordResetMailer;
 }
 
 export function createApp(dependencies: AppDependencies): Express {
@@ -85,16 +92,23 @@ export function createApp(dependencies: AppDependencies): Express {
   const users = new UserRepository(dependencies.database);
   const refreshTokens = new RefreshTokenRepository();
   const tokens = new TokenService(dependencies.environment);
+  const passwordResets = new PasswordResetRepository();
+  const passwordResetMailer =
+    dependencies.passwordResetMailer ??
+    createPasswordResetMailer(dependencies.environment, dependencies.logger);
   const authService = new AuthService(
     dependencies.database,
     users,
     accounts,
     refreshTokens,
+    passwordResets,
+    passwordResetMailer,
     tokens,
     dependencies.environment,
+    dependencies.logger,
   );
   const authHandler = new AuthHandler(authService);
-  const auth = createAuthMiddleware(tokens);
+  const auth = createAuthMiddleware(tokens, users);
   const requireAdmin = createAdminMiddleware(users);
   const adminHandler = new AdminHandler(
     new AdminService(new AdminRepository(dependencies.database), dependencies.environment),
@@ -145,7 +159,7 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(express.json({ limit: '100kb' }));
 
   app.use('/api/v1/health', createHealthRouter(healthHandler));
-  app.use('/api/v1/auth', createAuthRouter(authHandler, authRateLimit));
+  app.use('/api/v1/auth', createAuthRouter(authHandler, authRateLimit, passwordResetRateLimit));
   app.use('/api/v1/admin', createAdminRouter({ auth, requireAdmin, handler: adminHandler }));
   app.use(
     '/api/v1/wallet',
