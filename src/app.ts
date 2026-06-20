@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import express, { type Express } from 'express';
 import type { Logger } from 'pino';
 import swaggerUi from 'swagger-ui-express';
@@ -156,6 +159,25 @@ export function createApp(dependencies: AppDependencies): Express {
   );
   app.get('/api-docs.json', (_request, response) => response.json(openApiDocument));
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+  if (dependencies.environment.SERVE_FRONTEND) {
+    const frontendDirectory = resolve(dependencies.environment.FRONTEND_DIST_PATH);
+    const frontendIndex = resolve(frontendDirectory, 'index.html');
+
+    if (!existsSync(frontendIndex)) {
+      throw new Error(`Frontend build was not found at ${frontendIndex}`);
+    }
+
+    app.use(express.static(frontendDirectory, { index: false, maxAge: '1h' }));
+    app.use((request, response, next) => {
+      if (request.method !== 'GET' || request.path.startsWith('/api/')) {
+        next();
+        return;
+      }
+
+      response.sendFile(frontendIndex);
+    });
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

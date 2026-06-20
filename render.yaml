@@ -1,0 +1,59 @@
+services:
+  - type: keyvalue
+    name: velora-redis
+    plan: free
+    region: singapore
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  - type: web
+    name: velora-wallet-platform
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health/live
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: "production"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: LOG_LEVEL
+        value: "info"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: SERVE_FRONTEND
+        value: "true"
+      - key: FRONTEND_DIST_PATH
+        value: "frontend/dist"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: velora-postgres
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "false"
+      - key: DATABASE_POOL_MAX
+        value: "5"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: velora-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: DEFAULT_CURRENCY
+        value: "INR"
+      - key: CORS_ORIGINS
+        value: "https://velora-wallet-platform.onrender.com"
+      - key: PAYMENT_PROVIDER
+        value: "simulated"
+
+databases:
+  - name: velora-postgres
+    plan: free
+    region: singapore
+    databaseName: velora
+    user: velora

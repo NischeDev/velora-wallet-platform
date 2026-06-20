@@ -1,6 +1,7 @@
 import type { ApiEnvelope, ApiErrorEnvelope, Session } from './types';
 
-const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const API_URL = configuredApiUrl ? configuredApiUrl.replace(/\/$/, '') : '';
 
 export class ApiError extends Error {
   public constructor(

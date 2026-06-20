@@ -115,6 +115,19 @@ npm run dev
 
 The development UI runs at `http://localhost:5173` and talks to the API at port 3000. The browser stores the current demo session in local storage; production fintech applications should prefer secure, HttpOnly cookies for refresh tokens.
 
+## Free public demo deployment
+
+The repository includes a Render Blueprint that deploys the React UI and Express API at one public HTTPS URL, plus free PostgreSQL and Redis-compatible Key Value services in Singapore.
+
+1. Push the latest commit to GitHub.
+2. Open [Deploy Velora on Render](https://dashboard.render.com/blueprint/new?repo=https://github.com/NischeDev/velora-wallet-platform).
+3. Sign in with GitHub, grant Render access to `NischeDev/velora-wallet-platform`, and choose **Apply**.
+4. Wait for all three resources to become available, then open the `velora-wallet-platform` web service URL.
+
+The server runs database migrations automatically during startup. Render generates the JWT secrets and injects the database and Key Value connection strings, so secrets are not committed to Git.
+
+This free deployment is suitable only for a portfolio demo. Render free web services sleep after 15 minutes of inactivity, free PostgreSQL expires after 30 days, and free Key Value data can be lost on restart. The deployment uses simulated money and is not an RBI-authorised wallet or live payment system.
+
 ## India payment sandbox
 
 The application supports two provider modes:

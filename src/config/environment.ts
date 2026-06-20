@@ -23,6 +23,8 @@ const environmentSchema = z
       .default('info'),
     TRUST_PROXY: booleanString.default(false),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+    SERVE_FRONTEND: booleanString.default(false),
+    FRONTEND_DIST_PATH: z.string().min(1).default('frontend/dist'),
     DATABASE_URL: connectionUrl('DATABASE_URL', ['postgres:', 'postgresql:']),
     DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
     DATABASE_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),

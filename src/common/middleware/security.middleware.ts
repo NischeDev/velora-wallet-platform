@@ -14,12 +14,15 @@ export function createSecurityMiddleware(environment: Environment): RequestHandl
 
   return [
     helmet({ contentSecurityPolicy: false }),
-    cors({
-      credentials: true,
-      origin(origin, callback) {
-        if (!origin || allowedOrigins.has(origin)) callback(null, true);
-        else callback(new Error('Origin is not allowed by CORS'));
-      },
+    cors((request, callback) => {
+      const requestOrigin = request.get('origin');
+      const sameOrigin = `${request.protocol}://${request.get('host')}`;
+
+      callback(null, {
+        credentials: true,
+        origin:
+          !requestOrigin || requestOrigin === sameOrigin || allowedOrigins.has(requestOrigin),
+      });
     }),
   ];
 }
