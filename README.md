@@ -116,6 +116,14 @@ npm run dev
 
 The development UI runs at `http://localhost:5173` and talks to the API at port 3000. The browser stores the current demo session in local storage; production fintech applications should prefer secure, HttpOnly cookies for refresh tokens.
 
+## Netlify frontend deployment
+
+The root `netlify.toml` configures Netlify to install and build the React app in `frontend/` and publish `frontend/dist/`. The root package builds only the Express backend and does not produce an HTML page, so it must not be used as the Netlify site's build target. A single-page app fallback serves `index.html` when opening or refreshing frontend routes.
+
+The deployment command explicitly installs the frontend's locked dependencies, including development dependencies, before compiling. This ensures React, Vite, TypeScript, and React type declarations are available even when deployment starts with only the backend's dependencies installed.
+
+This deployment hosts the frontend only. Set `VITE_API_URL` in the Netlify site's build environment to the HTTPS origin of your deployed Express API, and allow the Netlify site's origin in the API's `CORS_ORIGINS` setting. Redeploy after changing `VITE_API_URL`, because Vite includes it at build time. Without it, the frontend sends API requests to its own origin, where this static deployment does not provide the wallet API.
+
 ## Free public demo deployment
 
 The repository includes a Render Blueprint that deploys the React UI and Express API at one public HTTPS URL, plus free PostgreSQL and Redis-compatible Key Value services in Singapore.
